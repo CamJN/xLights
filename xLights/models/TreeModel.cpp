@@ -65,6 +65,40 @@ void TreeModel::InitModel() {
     SetTreeCoord(degrees);
     InitSingleChannelModel();
     DisplayAs = "Tree";
+    _alternateNodes = (ModelXml->GetAttribute("AlternateNodes", "false") == "true");
+    if (_alternateNodes) {
+
+      size_t nodeCount = Nodes.size();
+      size_t coordCount = Nodes.front()->Coords.size();
+      size_t totalCoords = nodeCount * coordCount;
+
+      std::vector<NodeBaseClass::CoordStruct> newCoords;
+      newCoords.reserve(totalCoords);
+
+      size_t evens = 0;
+      size_t odds = 0;
+
+      for (size_t n = 0 ; n < nodeCount; ++n) {
+        for (size_t c = 0 ; c < coordCount; ++c) {
+          if(((n+c)%2)==0){
+            newCoords[n * coordCount + c] = Nodes[(evens - (evens % coordCount)) / coordCount]->Coords[evens % coordCount];
+            ++evens;
+          } else {
+            newCoords[n * coordCount + c] = Nodes[(nodeCount - 1) - ((odds - (odds % coordCount))/ coordCount)]->Coords[(coordCount - 1) - (odds % coordCount)];
+            ++odds;
+          }
+        }
+      }
+      for (size_t n = 0 ; n < nodeCount; ++n) {
+        for (size_t c = 0 ; c < coordCount; ++c) {
+          NodeBaseClass::CoordStruct &oc = Nodes[n]->Coords[c];
+          NodeBaseClass::CoordStruct &nc = newCoords[n * coordCount + c];
+          oc.bufX = nc.bufX;
+          oc.bufY = nc.bufY;
+          oc.bufZ = nc.bufZ;
+        }
+      }
+    }
 }
 
 // initialize screen coordinates for tree
@@ -315,6 +349,14 @@ int TreeModel::OnPropertyGridChange(wxPropertyGridInterface *grid, wxPropertyGri
         AddASAPWork(OutputModelManager::WORK_RELOAD_MODEL_FROM_XML, "TreeModel::OnPropertyGridChange::TreePerspective");
         AddASAPWork(OutputModelManager::WORK_REDRAW_LAYOUTPREVIEW, "TreeModel::OnPropertyGridChange::TreePerspective");
         return 0;
+    } else if (event.GetPropertyName() == "AlternateNodes") {
+        ModelXml->DeleteAttribute("AlternateNodes");
+        ModelXml->AddAttribute("AlternateNodes", event.GetPropertyValue().GetBool() ? "true" : "false");
+        AddASAPWork(OutputModelManager::WORK_RGBEFFECTS_CHANGE, "TreeModel::OnPropertyGridChange::AlternateNodes");
+        AddASAPWork(OutputModelManager::WORK_MODELS_CHANGE_REQUIRING_RERENDER, "TreeModel::OnPropertyGridChange::AlternateNodes");
+        AddASAPWork(OutputModelManager::WORK_RELOAD_MODEL_FROM_XML, "TreeModel::OnPropertyGridChange::AlternateNodes");
+        AddASAPWork(OutputModelManager::WORK_REDRAW_LAYOUTPREVIEW, "TreeModel::OnPropertyGridChange::AlternateNodes");
+        return 0;
     }
     return MatrixModel::OnPropertyGridChange(grid, event);
 }
@@ -365,6 +407,9 @@ void TreeModel::AddStyleProperties(wxPropertyGridInterface *grid) {
     p->SetAttribute("Step", 0.1);
     p->SetEditor("SpinCtrl");
     p->Enable(treeType == 0);
+
+    p = grid->Append(new wxBoolProperty("Alternate Nodes", "AlternateNodes", _alternateNodes));
+    p->SetEditor("CheckBox");
 }
 
 void TreeModel::ExportXlightsModel()
@@ -393,6 +438,7 @@ void TreeModel::ExportXlightsModel()
     wxString tp = ModelXml->GetAttribute("TreePerspective", "0.2");
     wxString tr = ModelXml->GetAttribute("TreeRotation", "3");
     wxString tsr = ModelXml->GetAttribute("TreeSpiralRotations", "0.0");
+    wxString an = ModelXml->GetAttribute("AlternateNodes", "false");
 
     wxString v = xlights_version_string;
     f.Write("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<treemodel \n");
@@ -414,6 +460,7 @@ void TreeModel::ExportXlightsModel()
     f.Write(wxString::Format("TreeBottomTopRatio=\"%s\" ", tbtr));
     f.Write(wxString::Format("TreePerspective=\"%s\" ", tp));
     f.Write(wxString::Format("TreeSpiralRotations=\"%s\" ", tsr));
+    f.Write(wxString::Format("AlternateNodes=\"%s\" ", an));
     f.Write(wxString::Format("SourceVersion=\"%s\" ", v));
     f.Write(ExportSuperStringColors());
     f.Write(" >\n");

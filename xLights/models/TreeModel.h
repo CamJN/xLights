@@ -36,5 +36,6 @@ class TreeModel : public MatrixModel
         float spiralRotations;
         float botTopRatio;
         float perspective;
+        bool _alternateNodes = false;
         void SetTreeCoord(long degrees);
 };
