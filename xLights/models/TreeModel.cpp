@@ -116,11 +116,19 @@ void TreeModel::InitVMatrix(int firstExportStrand) {
                 Nodes[idx]->ActChan = strandStartChan[x] + y*chanPerNode;
                 Nodes[idx]->Coords[0].bufX=IsLtoR ? x : NumStrands-x-1;
                 Nodes[idx]->StringNum=stringnum;
-                if(_alternateNodes){
-                  if (y + 1 <= (PixelsPerStrand + 1) / 2) {
-                    Nodes[idx]->Coords[0].bufY = isBotToTop == (segmentnum % 2 == 0) ? y * 2 : (PixelsPerStrand - 1) - (y * 2);
+                if (_alternateNodes) {
+                  if (!isBotToTop) {
+                    if (y + 1 <= (PixelsPerStrand + 1) / 2) {
+                      Nodes[idx]->Coords[0].bufY = y * 2;
+                    } else {
+                      Nodes[idx]->Coords[0].bufY = ((PixelsPerStrand - (y + 1)) * 2 + 1);
+                    }
                   } else {
-                    Nodes[idx]->Coords[0].bufY = isBotToTop == (segmentnum % 2 == 0) ? ((PixelsPerStrand - (y + 1)) * 2 + 1) : (PixelsPerStrand - 1) - ((PixelsPerStrand - (y + 1)) * 2 + 1);
+                    if (y + 1 <= (PixelsPerStrand + 1) / 2) {
+                      Nodes[idx]->Coords[0].bufY = (PixelsPerStrand - 1) - (y * 2);
+                    } else {
+                      Nodes[idx]->Coords[0].bufY = (PixelsPerStrand - 1) - ((PixelsPerStrand - (y + 1)) * 2 + 1);
+                    }
                   }
                 } else {
                   Nodes[idx]->Coords[0].bufY= isBotToTop == (segmentnum % 2 == 0) ? y:PixelsPerStrand-y-1;
