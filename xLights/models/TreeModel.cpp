@@ -100,15 +100,7 @@ void TreeModel::SetTreeCoord(long degrees) {
         std::vector<float> yPos(BufferHt);
         std::vector<float> xInc(BufferHt);
         for (int x = 0; x < BufferHt; x ++) {
-          if(_alternateNodes){
-            if (x + 1 <= (BufferHt + 1) / 2) {
-              yPos[x] = 2 * x;
-            } else {
-              yPos[x] = (BufferHt - (x - 1)) * 2 - 1;
-            }
-          } else {
             yPos[x] = x;
-          }
             xInc[x] = 0;
         }
         if (spiralRotations != 0.0f) {
@@ -142,20 +134,10 @@ void TreeModel::SetTreeCoord(long degrees) {
                         lightsInSeg = std::round(lengths[curSeg] * BufferHt);
                     }
                 }
-                float ang = (spiralRotations * 2.0 * M_PI / 10.0) / (float)lightsInSeg;
-                int epsilon = BufferHt/10.0/lightsInSeg;
-                if(_alternateNodes){
-                  if (x + 1 <= (BufferHt + 1) / 2) {
-                    yPos[x] = (x * 2) * epsilon;
-                    xInc[x] = (x * 2) * ang;
-                  } else {
-                    yPos[x] = ((BufferHt - (x - 1)) * 2 - 1) * epsilon;
-                    xInc[x] = ((BufferHt - (x - 1)) * 2 - 1) * ang;
-                  }
-                }else{
-                  yPos[x] = yPos[x-1] + epsilon;
+                float ang = spiralRotations * 2.0 * M_PI / 10.0;
+                ang /= (float)lightsInSeg;
+                yPos[x] = yPos[x-1] + (BufferHt/10.0/lightsInSeg);
                   xInc[x] = xInc[x-1] + ang;
-                }
                 curLightInSeg++;
             }
         }
