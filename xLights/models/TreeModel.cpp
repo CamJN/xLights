@@ -35,6 +35,62 @@ TreeModel::~TreeModel()
 {
 }
 
+void TreeModel::InitSingleChannelModel()
+{
+    // rework bufX/bufY for singleChannel
+    if (SingleNode)
+    {
+        int NumStrands = parm1 * parm3;
+        int PixelsPerStrand = parm2 / parm3;
+        if (vMatrix)
+        {
+            SetBufferSize(SingleNode ? 1 : PixelsPerStrand, SingleNode ? parm1 : NumStrands);
+            int Segments = SingleNode ? 1 : PixelsPerStrand;
+            int x = 0;
+            for (size_t n = 0; n < Nodes.size(); n++) {
+                int adjX = (IsLtoR ? x : NumStrands - x - 1);
+                for (auto& c : Nodes[n]->Coords)
+                {
+                  if (_alternateNodes) {
+                    if (x + 1 <= (Segments + 1) / 2) {
+                      c.bufX = 2 * adjX;
+                    } else {
+                      c.bufX = (Segments - (adjX + 1)) * 2 + 1;
+                    }
+                  }else{
+                    c.bufX = adjX;
+                  }
+                  c.bufY = 0;
+                }
+                x++;
+            }
+        }
+        else
+        {
+            SetBufferSize(SingleNode ? parm1 : NumStrands, SingleNode ? 1 : PixelsPerStrand);
+            int Segments = SingleNode ? 1 : PixelsPerStrand;
+            int y = 0;
+            for (size_t n = 0; n < Nodes.size(); n++) {
+                int adjY = (IsLtoR ? y : NumStrands - y - 1);
+                for (auto& c : Nodes[n]->Coords)
+                {
+                  if (_alternateNodes) {
+                    if (y + 1 <= (Segments + 1) / 2) {
+                      c.bufY = 2 * adjY;
+                    } else {
+                      c.bufY = (Segments - (adjY + 1)) * 2 + 1;
+                    }
+                  }else{
+                    c.bufY = adjY;
+                    }
+                    c.bufX = 0;
+                }
+                y++;
+            }
+        }
+    }
+}
+
 void TreeModel::InitModel() {
     wxStringTokenizer tkz(DisplayAs, " ");
     wxString token = tkz.GetNextToken();
@@ -66,39 +122,6 @@ void TreeModel::InitModel() {
     InitSingleChannelModel();
     DisplayAs = "Tree";
     _alternateNodes = (ModelXml->GetAttribute("AlternateNodes", "false") == "true");
-    if (_alternateNodes) {
-
-      size_t nodeCount = Nodes.size();
-      size_t coordCount = Nodes.front()->Coords.size();
-      size_t totalCoords = nodeCount * coordCount;
-
-      std::vector<NodeBaseClass::CoordStruct> newCoords;
-      newCoords.reserve(totalCoords);
-
-      size_t evens = 0;
-      size_t odds = 0;
-
-      for (size_t n = 0 ; n < nodeCount; ++n) {
-        for (size_t c = 0 ; c < coordCount; ++c) {
-          if(((n+c)%2)==0){
-            newCoords[n * coordCount + c] = Nodes[(evens - (evens % coordCount)) / coordCount]->Coords[evens % coordCount];
-            ++evens;
-          } else {
-            newCoords[n * coordCount + c] = Nodes[(nodeCount - 1) - ((odds - (odds % coordCount))/ coordCount)]->Coords[(coordCount - 1) - (odds % coordCount)];
-            ++odds;
-          }
-        }
-      }
-      for (size_t n = 0 ; n < nodeCount; ++n) {
-        for (size_t c = 0 ; c < coordCount; ++c) {
-          NodeBaseClass::CoordStruct &oc = Nodes[n]->Coords[c];
-          NodeBaseClass::CoordStruct &nc = newCoords[n * coordCount + c];
-          oc.bufX = nc.bufX;
-          oc.bufY = nc.bufY;
-          oc.bufZ = nc.bufZ;
-        }
-      }
-    }
 }
 
 // initialize screen coordinates for tree
