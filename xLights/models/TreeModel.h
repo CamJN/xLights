@@ -29,7 +29,6 @@ class TreeModel : public MatrixModel
     protected:
         virtual void AddStyleProperties(wxPropertyGridInterface *grid) override;
         virtual void InitModel() override;
-        virtual void InitSingleChannelModel() override;
     private:
         int treeType;
         long degrees;
