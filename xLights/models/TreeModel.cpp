@@ -102,9 +102,9 @@ void TreeModel::SetTreeCoord(long degrees) {
         for (int x = 0; x < BufferHt; x ++) {
           if(_alternateNodes){
             if (x + 1 <= (BufferHt + 1) / 2) {
-              yPos = 2 * x;
+              yPos[x] = 2 * x;
             } else {
-              yPos = (BufferHt - (x - 1)) * 2 - 1;
+              yPos[x] = (BufferHt - (x - 1)) * 2 - 1;
             }
           } else {
             yPos[x] = x;
