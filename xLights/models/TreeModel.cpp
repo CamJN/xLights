@@ -35,6 +35,102 @@ TreeModel::~TreeModel()
 {
 }
 
+// initialize buffer coordinates
+// parm1=NumStrings
+// parm2=PixelsPerString
+// parm3=StrandsPerString
+void TreeModel::InitVMatrix(int firstExportStrand) {
+    vMatrix = true;
+    int stringnum,segmentnum;
+    if (parm3 > parm2) {
+        parm3 = parm2;
+    }
+    int NumStrands=parm1*parm3;
+    int PixelsPerStrand=parm2/parm3;
+    int PixelsPerString=PixelsPerStrand*parm3;
+    SetBufferSize(PixelsPerStrand, NumStrands);
+    SetNodeCount(parm1,PixelsPerString, rgbOrder);
+    screenLocation.SetRenderSize(NumStrands, PixelsPerStrand, 2.0f);
+    int chanPerNode = GetNodeChannelCount(StringType);
+
+    // create output mapping
+    if (SingleNode) {
+        int x=0;
+        float sx = 0;
+        for (size_t n=0; n<Nodes.size(); n++) {
+            Nodes[n]->ActChan = stringStartChan[n];
+            float sy = 0;
+            for (auto& c : Nodes[n]->Coords)
+            {
+                c.screenX = isBotToTop ? sx : (NumStrands * parm3) - sx - 1;
+                c.screenX -= ((float)NumStrands - 1.0) / 2.0;
+                c.screenY = sy - ((float)PixelsPerStrand - 1.0) / 2.0;
+                c.screenZ = 0;
+                sy++;
+                if (sy >= PixelsPerStrand)
+                {
+                    sy = 0;
+                    sx++;
+                }
+            }
+
+            int y = 0;
+            int yincr = 1;
+            for (size_t c = 0; c < PixelsPerString; c++) {
+                Nodes[n]->Coords[c].bufX = IsLtoR ? x : NumStrands - x - 1;
+                Nodes[n]->Coords[c].bufY = y;
+                y += yincr;
+                if (y < 0 || y >= PixelsPerStrand) {
+                    yincr = -yincr;
+                    y += yincr;
+                    x++;
+                }
+            }
+        }
+        GetModelScreenLocation().SetRenderSize(NumStrands, PixelsPerStrand, GetModelScreenLocation().GetRenderDp());
+
+    } else {
+        std::vector<int> strandStartChan;
+        strandStartChan.clear();
+        strandStartChan.resize(NumStrands);
+        for (int x2 = 0; x2 < NumStrands; x2++) {
+            stringnum = x2 / parm3;
+            segmentnum = x2 % parm3;
+            strandStartChan[x2] = stringStartChan[stringnum] + segmentnum * PixelsPerStrand * chanPerNode;
+        }
+        if (firstExportStrand > 0 && firstExportStrand < NumStrands) {
+            int offset = strandStartChan[firstExportStrand];
+            for (int x2 = 0; x2 < NumStrands; x2++) {
+                strandStartChan[x2] = strandStartChan[x2] - offset;
+                if (strandStartChan[x2] < 0) {
+                    strandStartChan[x2] += (PixelsPerStrand * NumStrands * chanPerNode);
+                }
+            }
+        }
+
+        for (int x=0; x < NumStrands; x++) {
+            stringnum = x / parm3;
+            segmentnum = x % parm3;
+            for(int y=0; y < PixelsPerStrand; y++) {
+                int idx = stringnum * PixelsPerString + segmentnum * PixelsPerStrand + y;
+                Nodes[idx]->ActChan = strandStartChan[x] + y*chanPerNode;
+                Nodes[idx]->Coords[0].bufX=IsLtoR ? x : NumStrands-x-1;
+                Nodes[idx]->StringNum=stringnum;
+                if(_alternateNodes){
+                  if (y + 1 <= (PixelsPerStrand + 1) / 2) {
+                    Nodes[idx]->Coords[0].bufY = isBotToTop == (segmentnum % 2 == 0) ? y * 2 : (PixelsPerStrand - 1) - (y * 2);
+                  } else {
+                    Nodes[idx]->Coords[0].bufY = isBotToTop == (segmentnum % 2 == 0) ? ((PixelsPerStrand - (y + 1)) * 2 + 1) : (PixelsPerStrand - 1) - ((PixelsPerStrand - (y + 1)) * 2 + 1);
+                  }
+                } else {
+                  Nodes[idx]->Coords[0].bufY= isBotToTop == (segmentnum % 2 == 0) ? y:PixelsPerStrand-y-1;
+                }
+            }
+        }
+        CopyBufCoord2ScreenCoord();
+    }
+}
+
 void TreeModel::InitModel() {
     wxStringTokenizer tkz(DisplayAs, " ");
     wxString token = tkz.GetNextToken();
@@ -46,6 +142,7 @@ void TreeModel::InitModel() {
     if (firstStrand < 0) {
         firstStrand = 0;
     }
+    _alternateNodes = (ModelXml->GetAttribute("AlternateNodes", "false") == "true");
     InitVMatrix(firstStrand);
     token = tkz.GetNextToken();
     token.ToLong(&degrees);
@@ -62,7 +159,6 @@ void TreeModel::InitModel() {
     botTopRatio = wxAtof(ModelXml->GetAttribute("TreeBottomTopRatio", "6.0"));
     perspective =  wxAtof(ModelXml->GetAttribute("TreePerspective", "0.2"));
     screenLocation.SetPerspective2D(perspective);
-    _alternateNodes = (ModelXml->GetAttribute("AlternateNodes", "false") == "true");
     SetTreeCoord(degrees);
     InitSingleChannelModel();
     DisplayAs = "Tree";
@@ -137,7 +233,7 @@ void TreeModel::SetTreeCoord(long degrees) {
                 float ang = spiralRotations * 2.0 * M_PI / 10.0;
                 ang /= (float)lightsInSeg;
                 yPos[x] = yPos[x-1] + (BufferHt/10.0/lightsInSeg);
-                  xInc[x] = xInc[x-1] + ang;
+                xInc[x] = xInc[x-1] + ang;
                 curLightInSeg++;
             }
         }
