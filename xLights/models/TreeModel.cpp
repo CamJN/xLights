@@ -117,7 +117,7 @@ void TreeModel::InitVMatrix(int firstExportStrand) {
                 Nodes[idx]->Coords[0].bufX=IsLtoR ? x : NumStrands-x-1;
                 Nodes[idx]->StringNum=stringnum;
                 if (_alternateNodes) {
-                  if (!isBotToTop) {
+                  if (isBotToTop) {
                     if (y + 1 <= (PixelsPerStrand + 1) / 2) {
                       Nodes[idx]->Coords[0].bufY = y * 2;
                     } else {
