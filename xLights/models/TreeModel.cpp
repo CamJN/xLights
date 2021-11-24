@@ -35,110 +35,6 @@ TreeModel::~TreeModel()
 {
 }
 
-// initialize buffer coordinates
-// parm1=NumStrings
-// parm2=PixelsPerString
-// parm3=StrandsPerString
-void TreeModel::InitVMatrix(int firstExportStrand) {
-    vMatrix = true;
-    int stringnum,segmentnum;
-    if (parm3 > parm2) {
-        parm3 = parm2;
-    }
-    int NumStrands=parm1*parm3;
-    int PixelsPerStrand=parm2/parm3;
-    int PixelsPerString=PixelsPerStrand*parm3;
-    SetBufferSize(PixelsPerStrand, NumStrands);
-    SetNodeCount(parm1,PixelsPerString, rgbOrder);
-    screenLocation.SetRenderSize(NumStrands, PixelsPerStrand, 2.0f);
-    int chanPerNode = GetNodeChannelCount(StringType);
-
-    // create output mapping
-    if (SingleNode) {
-        int x=0;
-        float sx = 0;
-        for (size_t n=0; n<Nodes.size(); n++) {
-            Nodes[n]->ActChan = stringStartChan[n];
-            float sy = 0;
-            for (auto& c : Nodes[n]->Coords)
-            {
-                c.screenX = isBotToTop ? sx : (NumStrands * parm3) - sx - 1;
-                c.screenX -= ((float)NumStrands - 1.0) / 2.0;
-                c.screenY = sy - ((float)PixelsPerStrand - 1.0) / 2.0;
-                c.screenZ = 0;
-                sy++;
-                if (sy >= PixelsPerStrand)
-                {
-                    sy = 0;
-                    sx++;
-                }
-            }
-
-            int y = 0;
-            int yincr = 1;
-            for (size_t c = 0; c < PixelsPerString; c++) {
-                Nodes[n]->Coords[c].bufX = IsLtoR ? x : NumStrands - x - 1;
-                Nodes[n]->Coords[c].bufY = y;
-                y += yincr;
-                if (y < 0 || y >= PixelsPerStrand) {
-                    yincr = -yincr;
-                    y += yincr;
-                    x++;
-                }
-            }
-        }
-        GetModelScreenLocation().SetRenderSize(NumStrands, PixelsPerStrand, GetModelScreenLocation().GetRenderDp());
-
-    } else {
-        std::vector<int> strandStartChan;
-        strandStartChan.clear();
-        strandStartChan.resize(NumStrands);
-        for (int x2 = 0; x2 < NumStrands; x2++) {
-            stringnum = x2 / parm3;
-            segmentnum = x2 % parm3;
-            strandStartChan[x2] = stringStartChan[stringnum] + segmentnum * PixelsPerStrand * chanPerNode;
-        }
-        if (firstExportStrand > 0 && firstExportStrand < NumStrands) {
-            int offset = strandStartChan[firstExportStrand];
-            for (int x2 = 0; x2 < NumStrands; x2++) {
-                strandStartChan[x2] = strandStartChan[x2] - offset;
-                if (strandStartChan[x2] < 0) {
-                    strandStartChan[x2] += (PixelsPerStrand * NumStrands * chanPerNode);
-                }
-            }
-        }
-
-        for (int x=0; x < NumStrands; x++) {
-            stringnum = x / parm3;
-            segmentnum = x % parm3;
-            for(int y=0; y < PixelsPerStrand; y++) {
-                int idx = stringnum * PixelsPerString + segmentnum * PixelsPerStrand + y;
-                Nodes[idx]->ActChan = strandStartChan[x] + y*chanPerNode;
-                Nodes[idx]->Coords[0].bufX=IsLtoR ? x : NumStrands-x-1;
-                Nodes[idx]->StringNum=stringnum;
-                if (_alternateNodes) {
-                  if (isBotToTop) {
-                    if (y + 1 <= (PixelsPerStrand + 1) / 2) {
-                      Nodes[idx]->Coords[0].bufY = y * 2;
-                    } else {
-                      Nodes[idx]->Coords[0].bufY = ((PixelsPerStrand - (y + 1)) * 2 + 1);
-                    }
-                  } else {
-                    if (y + 1 <= (PixelsPerStrand + 1) / 2) {
-                      Nodes[idx]->Coords[0].bufY = (PixelsPerStrand - 1) - (y * 2);
-                    } else {
-                      Nodes[idx]->Coords[0].bufY = (PixelsPerStrand - 1) - ((PixelsPerStrand - (y + 1)) * 2 + 1);
-                    }
-                  }
-                } else {
-                  Nodes[idx]->Coords[0].bufY= isBotToTop == (segmentnum % 2 == 0) ? y:PixelsPerStrand-y-1;
-                }
-            }
-        }
-        CopyBufCoord2ScreenCoord();
-    }
-}
-
 void TreeModel::InitModel() {
     wxStringTokenizer tkz(DisplayAs, " ");
     wxString token = tkz.GetNextToken();
@@ -150,7 +46,6 @@ void TreeModel::InitModel() {
     if (firstStrand < 0) {
         firstStrand = 0;
     }
-    _alternateNodes = (ModelXml->GetAttribute("AlternateNodes", "false") == "true");
     InitVMatrix(firstStrand);
     token = tkz.GetNextToken();
     token.ToLong(&degrees);
@@ -420,14 +315,6 @@ int TreeModel::OnPropertyGridChange(wxPropertyGridInterface *grid, wxPropertyGri
         AddASAPWork(OutputModelManager::WORK_RELOAD_MODEL_FROM_XML, "TreeModel::OnPropertyGridChange::TreePerspective");
         AddASAPWork(OutputModelManager::WORK_REDRAW_LAYOUTPREVIEW, "TreeModel::OnPropertyGridChange::TreePerspective");
         return 0;
-    } else if (event.GetPropertyName() == "AlternateNodes") {
-        ModelXml->DeleteAttribute("AlternateNodes");
-        ModelXml->AddAttribute("AlternateNodes", event.GetPropertyValue().GetBool() ? "true" : "false");
-        AddASAPWork(OutputModelManager::WORK_RGBEFFECTS_CHANGE, "TreeModel::OnPropertyGridChange::AlternateNodes");
-        AddASAPWork(OutputModelManager::WORK_MODELS_CHANGE_REQUIRING_RERENDER, "TreeModel::OnPropertyGridChange::AlternateNodes");
-        AddASAPWork(OutputModelManager::WORK_RELOAD_MODEL_FROM_XML, "TreeModel::OnPropertyGridChange::AlternateNodes");
-        AddASAPWork(OutputModelManager::WORK_REDRAW_LAYOUTPREVIEW, "TreeModel::OnPropertyGridChange::AlternateNodes");
-        return 0;
     }
     return MatrixModel::OnPropertyGridChange(grid, event);
 }
@@ -478,9 +365,6 @@ void TreeModel::AddStyleProperties(wxPropertyGridInterface *grid) {
     p->SetAttribute("Step", 0.1);
     p->SetEditor("SpinCtrl");
     p->Enable(treeType == 0);
-
-    p = grid->Append(new wxBoolProperty("Alternate Nodes", "AlternateNodes", _alternateNodes));
-    p->SetEditor("CheckBox");
 }
 
 void TreeModel::ExportXlightsModel()
@@ -509,7 +393,6 @@ void TreeModel::ExportXlightsModel()
     wxString tp = ModelXml->GetAttribute("TreePerspective", "0.2");
     wxString tr = ModelXml->GetAttribute("TreeRotation", "3");
     wxString tsr = ModelXml->GetAttribute("TreeSpiralRotations", "0.0");
-    wxString an = ModelXml->GetAttribute("AlternateNodes", "false");
 
     wxString v = xlights_version_string;
     f.Write("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<treemodel \n");
@@ -531,7 +414,6 @@ void TreeModel::ExportXlightsModel()
     f.Write(wxString::Format("TreeBottomTopRatio=\"%s\" ", tbtr));
     f.Write(wxString::Format("TreePerspective=\"%s\" ", tp));
     f.Write(wxString::Format("TreeSpiralRotations=\"%s\" ", tsr));
-    f.Write(wxString::Format("AlternateNodes=\"%s\" ", an));
     f.Write(wxString::Format("SourceVersion=\"%s\" ", v));
     f.Write(ExportSuperStringColors());
     f.Write(" >\n");

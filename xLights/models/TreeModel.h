@@ -29,7 +29,6 @@ class TreeModel : public MatrixModel
     protected:
         virtual void AddStyleProperties(wxPropertyGridInterface *grid) override;
         virtual void InitModel() override;
-        void InitVMatrix(int firstExportStrand = 0);
     private:
         int treeType;
         long degrees;
@@ -37,6 +36,5 @@ class TreeModel : public MatrixModel
         float spiralRotations;
         float botTopRatio;
         float perspective;
-        bool _alternateNodes = false;
         void SetTreeCoord(long degrees);
 };
